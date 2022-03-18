@@ -1,0 +1,449 @@
+//
+// Source code recreated from a .class file by IntelliJ IDEA
+// (powered by Fernflower decompiler)
+//
+
+package cn.csg.zt.cmpt.msinvoke.util;
+
+import cn.csg.zt.cmpt.msinvoke.config.MsinvokeAppConfig;
+import cn.csg.zt.cmpt.msinvoke.constants.MsinvokeDataConstants;
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.serializer.SerializerFeature;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.lang.Nullable;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestTemplate;
+
+public class MsinvokeClient {
+    private static final Logger log = LoggerFactory.getLogger(MsinvokeClient.class);
+    @Autowired
+    private RestTemplate msinvokeRestTemplate;
+    @Autowired
+    private RestTemplate ipTemplate;
+
+    public MsinvokeClient() {
+    }
+
+    private static Map<String, String> objectToMap(Object object) {
+        String jsonString = JSON.toJSONString(object, new SerializerFeature[]{SerializerFeature.WriteNonStringValueAsString});
+        log.debug("#objectToMap#" + jsonString);
+        return (Map)JSON.parseObject(jsonString, Map.class);
+    }
+
+    private static HttpHeaders getHeader() {
+        return MsinvokeHeaderFactory.getHeader();
+    }
+
+    private static void mapSetHeadr(HttpHeaders headers, Map<String, String> params) {
+        MsinvokeHeaderFactory.MapSetHeadr(headers, params);
+    }
+
+    public <T> ResponseEntity<T> call(String serviceName, String path, HttpHeaders headers, MsinvokeMethod callMethod, Object params, Class<T> responseType) {
+        StringBuffer url = new StringBuffer();
+        if (MsinvokeUtil.checkProtocolHeader(serviceName)) {
+            url.append(serviceName).append(path);
+        } else {
+            url.append(MsinvokeDataConstants.GET_PROTOCOL_HEADER).append(serviceName).append(path);
+        }
+
+        if (MsinvokeMethod.GET.equals(callMethod)) {
+            return this.get(url.toString(), headers, params, responseType);
+        } else if (MsinvokeMethod.POSTJSON.equals(callMethod)) {
+            headers.setContentType(MediaType.APPLICATION_JSON_UTF8);
+            return this.postJson(url.toString(), headers, params, responseType);
+        } else if (MsinvokeMethod.POSTFORMURL.equals(callMethod)) {
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+            return this.postFormUrl(url.toString(), headers, params, responseType);
+        } else if (MsinvokeMethod.POSTFORMDATA.equals(callMethod)) {
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+            return this.postFormData(url.toString(), headers, params, responseType);
+        } else {
+            return null;
+        }
+    }
+
+    public <T> ResponseEntity<T> get(String url, HttpHeaders headers, Object params, Class<T> responseType) {
+        ResponseEntity response = null;
+
+        try {
+            String serviceName = MsinvokeUtil.urlGetServiceName(url);
+            int checkGateway = MsinvokeUtil.checkGateway(serviceName);
+            if (checkGateway == 2) {
+                return this.nnwExecute(url, headers, params, "GET", responseType);
+            }
+
+            StringBuffer urlSb = new StringBuffer(url);
+            HttpEntity<String> requestEntity = new HttpEntity((Object)null, headers);
+            urlSb.append("?").append("1=1");
+            if (params != null) {
+                Map<String, String> oMap = objectToMap(params);
+                Iterator var11 = oMap.entrySet().iterator();
+
+                while(var11.hasNext()) {
+                    Entry<String, String> entry = (Entry)var11.next();
+                    urlSb.append("&").append((String)entry.getKey()).append("={").append((String)entry.getKey()).append("}");
+                }
+
+                url = urlSb.toString();
+                response = this.exchange(url, HttpMethod.GET, requestEntity, responseType, oMap);
+            } else {
+                response = this.exchange(url, HttpMethod.GET, requestEntity, responseType);
+            }
+        } catch (Exception var13) {
+            log.error("#Get#url:" + url + " headers:" + JSON.toJSONString(headers) + " params:" + params + " error:" + var13.getMessage(), var13);
+            return null;
+        }
+
+        log.info("#Get#url:" + url + " headers:" + JSON.toJSONString(headers) + " params:" + params + " resopense:" + JSON.toJSONString(response));
+        return response;
+    }
+
+    public <T> ResponseEntity<T> postJson(String url, HttpHeaders headers, Object params, Class<T> responseType) {
+        ResponseEntity response = null;
+
+        try {
+            String serviceName = MsinvokeUtil.urlGetServiceName(url);
+            int checkGateway = MsinvokeUtil.checkGateway(serviceName);
+            if (checkGateway == 2) {
+                return this.nnwExecute(url, headers, params, "POST", responseType);
+            }
+
+            String value = null;
+            if (params != null) {
+                value = JSON.toJSONString(params);
+            }
+
+            HttpEntity<String> requestEntity = new HttpEntity(value, headers);
+            response = this.exchange(url, HttpMethod.POST, requestEntity, responseType);
+        } catch (Exception var10) {
+            log.error("#PostJson#url:" + url + " headers:" + JSON.toJSONString(headers) + " params:" + params + " error:" + var10.getMessage(), var10);
+            return null;
+        }
+
+        log.info("#PostJson#url:" + url + " headers:" + JSON.toJSONString(headers) + " params:" + params + " resopense:" + JSON.toJSONString(response));
+        return response;
+    }
+
+    public <T> ResponseEntity<T> postFormUrl(String url, HttpHeaders headers, Object params, Class<T> responseType) {
+        ResponseEntity response = null;
+
+        try {
+            String serviceName = MsinvokeUtil.urlGetServiceName(url);
+            int checkGateway = MsinvokeUtil.checkGateway(serviceName);
+            if (checkGateway == 2) {
+                return this.nnwExecute(url, headers, params, "POST", responseType);
+            }
+
+            MultiValueMap<String, String> value = new LinkedMultiValueMap();
+            if (params != null) {
+                Map<String, String> oMap = objectToMap(params);
+                Iterator var10 = oMap.entrySet().iterator();
+
+                while(var10.hasNext()) {
+                    Entry<String, String> entry = (Entry)var10.next();
+                    value.add(entry.getKey(), entry.getValue());
+                }
+            }
+
+            HttpEntity<MultiValueMap<String, String>> requestEntity = new HttpEntity(value, headers);
+            response = this.exchange(url, HttpMethod.POST, requestEntity, responseType);
+        } catch (Exception var12) {
+            log.error("#postFormUrl#url:" + url + " headers:" + JSON.toJSONString(headers) + " params:" + params + " error:" + var12.getMessage(), var12);
+            return null;
+        }
+
+        log.info("#postFormUrl#url:" + url + " headers:" + JSON.toJSONString(headers) + " params:" + params + " resopense:" + JSON.toJSONString(response));
+        return response;
+    }
+
+    public <T> ResponseEntity<T> postFormData(String url, HttpHeaders headers, Object params, Class<T> responseType) {
+        ResponseEntity response = null;
+
+        try {
+            String serviceName = MsinvokeUtil.urlGetServiceName(url);
+            int checkGateway = MsinvokeUtil.checkGateway(serviceName);
+            if (checkGateway == 2) {
+                return this.nnwExecute(url, headers, params, "POST", responseType);
+            }
+
+            MultiValueMap<String, String> value = new LinkedMultiValueMap();
+            if (params != null) {
+                Map<String, String> oMap = objectToMap(params);
+                Iterator var10 = oMap.entrySet().iterator();
+
+                while(var10.hasNext()) {
+                    Entry<String, String> entry = (Entry)var10.next();
+                    value.add(entry.getKey(), entry.getValue());
+                }
+            }
+
+            HttpEntity<MultiValueMap<String, String>> requestEntity = new HttpEntity(value, headers);
+            response = this.exchange(url, HttpMethod.POST, requestEntity, responseType);
+        } catch (Exception var12) {
+            log.error("#postFormData#url:" + url + " headers:" + JSON.toJSONString(headers) + " params:" + params + " error:" + var12.getMessage(), var12);
+            return null;
+        }
+
+        log.info("#postFormData#url:" + url + " headers:" + JSON.toJSONString(headers) + " params:" + params + " resopense:" + JSON.toJSONString(response));
+        return response;
+    }
+
+    public ResponseEntity<String> call(String serviceName, String path, HttpHeaders headers, MsinvokeMethod callMethod, Object params) {
+        ResponseEntity<String> call = this.call(serviceName, path, headers, callMethod, params, String.class);
+        return call != null ? call : null;
+    }
+
+    public ResponseEntity<String> get(String serviceName, String path, HttpHeaders headers, Object params) {
+        return this.call(serviceName, path, headers, MsinvokeMethod.GET, params);
+    }
+
+    public ResponseEntity<String> postJson(String serviceName, String path, HttpHeaders headers, Object params) {
+        return this.call(serviceName, path, headers, MsinvokeMethod.POSTJSON, params);
+    }
+
+    public ResponseEntity<String> postFormUrl(String serviceName, String path, HttpHeaders headers, Object params) {
+        return this.call(serviceName, path, headers, MsinvokeMethod.POSTFORMURL, params);
+    }
+
+    public ResponseEntity<String> postFormData(String serviceName, String path, HttpHeaders headers, Object params) {
+        return this.call(serviceName, path, headers, MsinvokeMethod.POSTFORMDATA, params);
+    }
+
+    public ResponseEntity<String> get(String serviceName, String path, Map<String, String> hreadMap, Object params) {
+        HttpHeaders header = getHeader();
+        mapSetHeadr(header, hreadMap);
+        ResponseEntity<String> responseEntity = this.get(serviceName, path, header, params);
+        return responseEntity;
+    }
+
+    public ResponseEntity<String> postJson(String serviceName, String path, Map<String, String> hreadMap, Object params) {
+        HttpHeaders header = getHeader();
+        mapSetHeadr(header, hreadMap);
+        ResponseEntity<String> responseEntity = this.postJson(serviceName, path, header, params);
+        return responseEntity;
+    }
+
+    public ResponseEntity<String> postFormUrl(String serviceName, String path, Map<String, String> hreadMap, Object params) {
+        HttpHeaders header = getHeader();
+        mapSetHeadr(header, hreadMap);
+        ResponseEntity<String> responseEntity = this.postFormUrl(serviceName, path, header, params);
+        return responseEntity;
+    }
+
+    public ResponseEntity<String> postFormData(String serviceName, String path, Map<String, String> hreadMap, Object params) {
+        HttpHeaders header = getHeader();
+        mapSetHeadr(header, hreadMap);
+        ResponseEntity<String> responseEntity = this.postFormData(serviceName, path, header, params);
+        return responseEntity;
+    }
+
+    public String baseCall(String serviceName, String path, HttpHeaders headers, MsinvokeMethod callMethod, Object params) {
+        ResponseEntity<String> call = this.call(serviceName, path, headers, callMethod, params);
+        return call == null ? null : (String)call.getBody();
+    }
+
+    public String baseGet(String serviceName, String path, HttpHeaders headers, Object params) {
+        ResponseEntity<String> call = this.get(serviceName, path, headers, params);
+        return call == null ? null : (String)call.getBody();
+    }
+
+    public String basePostJson(String serviceName, String path, HttpHeaders headers, Object params) {
+        ResponseEntity<String> call = this.postJson(serviceName, path, headers, params);
+        return call == null ? null : (String)call.getBody();
+    }
+
+    public String basePostFormUrl(String serviceName, String path, HttpHeaders headers, Object params) {
+        ResponseEntity<String> call = this.postFormUrl(serviceName, path, headers, params);
+        return call == null ? null : (String)call.getBody();
+    }
+
+    public String basePostFormData(String serviceName, String path, HttpHeaders headers, Object params) {
+        ResponseEntity<String> call = this.postFormData(serviceName, path, headers, params);
+        return call == null ? null : (String)call.getBody();
+    }
+
+    public String baseCall(String serviceName, String path, Map<String, String> hreadMap, MsinvokeMethod callMethod, Object params) {
+        HttpHeaders header = getHeader();
+        mapSetHeadr(header, hreadMap);
+        ResponseEntity<String> call = this.call(serviceName, path, header, callMethod, params);
+        return call == null ? null : (String)call.getBody();
+    }
+
+    public String baseGet(String serviceName, String path, Map<String, String> hreadMap, Object params) {
+        HttpHeaders header = getHeader();
+        mapSetHeadr(header, hreadMap);
+        ResponseEntity<String> call = this.get(serviceName, path, header, params);
+        return call == null ? null : (String)call.getBody();
+    }
+
+    public String basePostJson(String serviceName, String path, Map<String, String> hreadMap, Object params) {
+        HttpHeaders header = getHeader();
+        mapSetHeadr(header, hreadMap);
+        ResponseEntity<String> call = this.postJson(serviceName, path, header, params);
+        return call == null ? null : (String)call.getBody();
+    }
+
+    public String basePostFormUrl(String serviceName, String path, Map<String, String> hreadMap, Object params) {
+        HttpHeaders header = getHeader();
+        mapSetHeadr(header, hreadMap);
+        ResponseEntity<String> call = this.postFormUrl(serviceName, path, header, params);
+        return call == null ? null : (String)call.getBody();
+    }
+
+    public String basePostFormData(String serviceName, String path, Map<String, String> hreadMap, Object params) {
+        HttpHeaders header = getHeader();
+        mapSetHeadr(header, hreadMap);
+        ResponseEntity<String> call = this.postFormData(serviceName, path, header, params);
+        return call == null ? null : (String)call.getBody();
+    }
+
+    public <T> T call(String serviceName, String path, MsinvokeMethod callMethod, Object params, Class<T> responseType) {
+        String call = this.call(serviceName, path, callMethod, params);
+        if (call == null) {
+            return null;
+        } else {
+            T parseObject = JSON.parseObject(call, responseType);
+            return parseObject;
+        }
+    }
+
+    public <T> T get(String serviceName, String path, Object params, Class<T> responseType) {
+        return this.call(serviceName, path, MsinvokeMethod.GET, params, responseType);
+    }
+
+    public <T> T postJson(String serviceName, String path, Object params, Class<T> responseType) {
+        return this.call(serviceName, path, MsinvokeMethod.POSTJSON, params, responseType);
+    }
+
+    public <T> T postFormUrl(String serviceName, String path, Object params, Class<T> responseType) {
+        return this.call(serviceName, path, MsinvokeMethod.POSTFORMURL, params, responseType);
+    }
+
+    public <T> T postFormData(String serviceName, String path, Object params, Class<T> responseType) {
+        return this.call(serviceName, path, MsinvokeMethod.POSTFORMDATA, params, responseType);
+    }
+
+    public String call(String serviceName, String path, MsinvokeMethod callMethod, Object params) {
+        HttpHeaders header = getHeader();
+        ResponseEntity<String> call = this.call(serviceName, path, header, callMethod, params);
+        return call == null ? null : (String)call.getBody();
+    }
+
+    public String postJson(String serviceName, String path, Object params) {
+        HttpHeaders header = getHeader();
+        ResponseEntity<String> call = this.postJson(serviceName, path, header, params);
+        return call == null ? null : (String)call.getBody();
+    }
+
+    public String postFormUrl(String serviceName, String path, Object params) {
+        HttpHeaders header = getHeader();
+        ResponseEntity<String> call = this.postFormUrl(serviceName, path, header, params);
+        return call == null ? null : (String)call.getBody();
+    }
+
+    public String postFormData(String serviceName, String path, Object params) {
+        HttpHeaders header = getHeader();
+        ResponseEntity<String> call = this.postFormData(serviceName, path, header, params);
+        return call == null ? null : (String)call.getBody();
+    }
+
+    public String get(String serviceName, String path, Object params) {
+        HttpHeaders header = getHeader();
+        ResponseEntity<String> call = this.get(serviceName, path, header, params);
+        return call == null ? null : (String)call.getBody();
+    }
+
+    public String get(String serviceName, String path) {
+        return this.get(serviceName, path, (Object)null);
+    }
+
+    public String post(String serviceName, String path) {
+        return this.postJson(serviceName, path, (Object)null);
+    }
+
+    public <T> ResponseEntity<T> nnwExecute(String url, HttpHeaders headers, Object params, String method, Class<T> responseType) {
+        Object response = null;
+
+        try {
+            MsinvokeUtil.checkBaseHeader(headers);
+            String serviceName = MsinvokeUtil.urlGetServiceName(url);
+            String nnwUrl = getNnwUrl();
+            MediaType contentType = headers.getContentType();
+            String type = contentType.toString();
+            int start = url.indexOf(serviceName) + serviceName.length();
+            String path = url.substring(start);
+            Map<String, Object> reqMap = new HashMap();
+            reqMap.put("method", method);
+            reqMap.put("body", params);
+            reqMap.put("serverName", serviceName);
+            reqMap.put("path", path);
+            Map<String, Object> headerMap = new HashMap();
+            headerMap.put("Content-Type", type.replaceAll(";", "; "));
+            reqMap.put("header", headerMap);
+            String value = JSON.toJSONString(reqMap);
+            headers.setContentType(MediaType.APPLICATION_JSON_UTF8);
+            HttpEntity<String> requestEntity = new HttpEntity(value, headers);
+            ResponseEntity<String> nnwResponse = this.exchange(nnwUrl, HttpMethod.POST, requestEntity, String.class);
+            int status = nnwResponse.getStatusCodeValue();
+            if (status != HttpStatus.OK.value()) {
+                log.error("#nnwExecute#url:内外网请求失败!" + nnwUrl + "reqMap:" + JSON.toJSONString(reqMap) + " response:" + JSON.toJSONString(response));
+                return null;
+            } else {
+                String body = (String)nnwResponse.getBody();
+                Map<String, Object> rsMap = (Map)JSON.parseObject(body, Map.class);
+                String mapStatus = (String)rsMap.get("status");
+                if ("00".equals(mapStatus)) {
+                    T t = rsMap.get("data");
+                    ResponseEntity<T> response2 = new ResponseEntity(t, HttpStatus.OK);
+                    log.info("#nnwExecute#url:" + nnwUrl + "reMap: " + JSON.toJSONString(reqMap) + " nnwResponse:" + JSON.toJSONString(nnwResponse) + " response:" + JSON.toJSONString(response2));
+                    return response2;
+                } else {
+                    log.error("#nnwExecute#请求状态异常! url:" + nnwUrl + " body:" + body);
+                    return null;
+                }
+            }
+        } catch (Exception var24) {
+            log.error("#nnwExecute#url:" + url + " headers:" + JSON.toJSONString(headers) + " params:" + params + " error:" + var24.getMessage(), var24);
+            return null;
+        }
+    }
+
+    private static String getNnwUrl() {
+        String nnwServiceName = MsinvokeAppConfig.getProperty("nnw-service-name", "cms-dmz-nwwinterface-server");
+        String protocolHeader = MsinvokeDataConstants.GET_PROTOCOL_HEADER;
+        String mscaller = MsinvokeAppConfig.getProperty("spring.application.name");
+        String path = MsinvokeUtil.idcOrDmz(mscaller);
+        String basePath = MsinvokeAppConfig.getProperty("msinvoke.nnw.base.path", "");
+        return StringUtils.isEmpty(basePath) ? protocolHeader + nnwServiceName + "/" + path : protocolHeader + nnwServiceName + basePath + "/" + path;
+    }
+
+    private <T> ResponseEntity<T> exchange(String url, HttpMethod method, @Nullable HttpEntity<?> requestEntity, Class<T> responseType) throws Exception {
+        return this.exchange(url, method, requestEntity, responseType, (Map)null);
+    }
+
+    private <T> ResponseEntity<T> exchange(String url, HttpMethod method, @Nullable HttpEntity<?> requestEntity, Class<T> responseType, Map<String, ?> uriVariables) throws Exception {
+        boolean ipAddress = MsinvokeUtil.isIpAddress(url);
+        RestTemplate template = this.ipTemplate;
+        if (!ipAddress) {
+            MsinvokeUtil.checkBaseHeader(requestEntity);
+            template = this.msinvokeRestTemplate;
+            log.debug("#exchange#内部调用!");
+        }
+
+        return uriVariables == null ? template.exchange(url, method, requestEntity, responseType, new Object[0]) : template.exchange(url, method, requestEntity, responseType, uriVariables);
+    }
+}
